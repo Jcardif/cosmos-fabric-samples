@@ -39,13 +39,6 @@ This tutorial walks you through building an end-to-end translytical task flow th
 - **Power BI DirectQuery** for real-time reporting
 - **Data function buttons** for triggering operations from reports
 
-### **🛠️ Development Patterns**
-
-- **Function parameter mapping** from report controls
-- **Error handling** for Cosmos DB operations
-- **Price history tracking** with append-only patterns
-- **Report refresh automation** after data updates
-
 ## 📋 Prerequisites
 
 ### **Required Services**
