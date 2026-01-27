@@ -170,7 +170,7 @@ Finally, we'll create a Power BI report that allows users to update product pric
 
     ![Cosmos DB Connection](./images/cosmos-db-connection.png)
 
-1. In the Navigator pane, expand the Cosmos DB database and select the two containers: `SampleData` and `SampleData_PriceHistory[]`. 
+1. In the Navigator pane, expand the Cosmos DB database and select the two containers: `SampleData` and `SampleData_PriceHistory[]`.
 
     Select **Transform Data** to open the Power Query Editor.
 
