@@ -16,50 +16,37 @@ description: Build end-to-end translytical workflows combining Cosmos DB in Fabr
 
 # 🔄 Translytical Task Flows with Cosmos DB in Microsoft Fabric
 
-**Build end-to-end translytical workflows combining operational and analytical workloads**
+## Build end-to-end translytical workflows combining operational and analytical workloads
 
 This tutorial walks you through building an end-to-end translytical task flow that utilizes Cosmos DB in Microsoft Fabric as the data store. Learn how operational and analytical workloads can work together seamlessly using User Data Functions and Power BI.
 
-> **🎯 Note**: This sample demonstrates how to create interactive Power BI reports that can write data back to Cosmos DB in real-time using User Data Functions, enabling true translytical scenarios.
 > **Note:** Translytical task flows are currently in public preview.
 
 ## 🎯 What You'll Learn
 
 ### **📊 Translytical Concepts**
 
-- **Real-time data updates** from Power BI reports back to Cosmos DB
+- **Real-time data write-back** from Power BI reports back to Cosmos DB
 - **User Data Functions** for executing business logic from visualizations
-- **DirectQuery connectivity** for live data access
 - **Interactive data workflows** combining analytics and operations
-
-### **🔗 Fabric Integration Patterns**
-
-- **Cosmos DB in Fabric** as the unified data store
-- **User Data Functions** for write-back operations
-- **Power BI DirectQuery** for real-time reporting
-- **Data function buttons** for triggering operations from reports
 
 ## 📋 Prerequisites
 
-### **Required Services**
+### Required Services
 
 - **Microsoft Fabric workspace** with appropriate permissions (or [start a free Fabric trial](https://learn.microsoft.com/fabric/get-started/fabric-trial))
-- **Cosmos DB artifact** in Fabric with sample data loaded
-- **[Power BI Desktop](https://powerbi.microsoft.com/desktop/)** with preview features enabled
-
-### **Required Data**
-
-- **SampleData container** - Product catalog with pricing and reviews (loaded from Cosmos DB sample data)
+- **Cosmos DB item** in Fabric with sample data loaded
+- **[Power BI Desktop](https://powerbi.microsoft.com/desktop/)** with the [required preview features enabled](https://learn.microsoft.com/en-us/power-bi/create-reports/translytical-task-flow-overview)
 
 ## 🏗️ Solution Architecture
 
 A translytical task flow combines three key components:
 
 | Component | Purpose | Technology |
-|-----------|---------|------------|
-| **Store Data** | Real-time access to operational data for analytics | Cosmos DB in Fabric |
-| **Develop Data Logic** | Execute business logic when triggered from reports | User Data Functions |
-| **Visualize & Interact** | Display data and provide interactive controls | Power BI with DirectQuery |
+| --------- | ------- | ---------- |
+| **Operational Data Store** | Real-time access to operational data for analytics | Cosmos DB in Fabric |
+| **Data Logic Layer** | Execute business logic when triggered such as writing back to the data store | User Data Functions |
+| **Visualization Layer** | Display data and provide interactive controls | Power BI |
 
 ## 🚀 Getting Started
 
@@ -96,21 +83,21 @@ Next, we'll create a user data function that updates the current price of a prod
     udf = fn.UserDataFunctions()
 
     import logging
+    from datetime import datetime
     from typing import Any
-    from datetime import datetime, timezone
-    from fabric.functions.cosmosdb import get_cosmos_client
+    from azure.cosmos import CosmosClient
     from azure.cosmos import exceptions
 
-    @udf.generic_connection(argName="cosmosDb", audienceType="CosmosDB")
-    @udf.function()
-    def update_price(cosmosDb: fn.FabricItem, categoryName: str, productId: str, newPrice: float) -> list[dict[str, Any]]:
+    COSMOS_URI = "YOUR_COSMOS_DB_URI_HERE"
+    DB_NAME = "YOUR_DATABASE_NAME_HERE"
+    CONTAINER_NAME = "SampleData"
 
-        COSMOS_DB_URI = "YOUR_COSMOS_DB_URI_HERE"
-        DB_NAME = "YOUR_DATABASE_NAME_HERE"
-        CONTAINER_NAME = "SampleData"
+    @udf.connection(argName="cosmosClient", audienceType="CosmosDB", cosmos_endpoint=COSMOS_URI)
+    @udf.function()
+    def update_product(cosmosClient: CosmosClient, categoryName: str, productId: str, newPrice: float) -> list[dict[str, Any]]:
 
         try:
-            cosmosClient = get_cosmos_client(cosmosDb, COSMOS_DB_URI)
+            # Get the database and container clients
             database = cosmosClient.get_database_client(DB_NAME)
             container = database.get_container_client(CONTAINER_NAME)
 
@@ -122,7 +109,7 @@ Next, we'll create a user data function that updates the current price of a prod
             
             now = datetime.now().replace(microsecond=0)
             current_time_iso = now.isoformat()
-
+            
             # Append to the price history
             product["priceHistory"].append({
                 "date": current_time_iso,
@@ -146,6 +133,8 @@ Next, we'll create a user data function that updates the current price of a prod
     ```
 
 1. Replace `YOUR_COSMOS_DB_URI_HERE` with the URI of your Cosmos DB database. You can find this in the **Settings** > **Connection** section of your Cosmos DB database in Fabric.
+
+    ![Cosmos DB Connection Settings](./images/cosmos-db-connection-settings.png)
 
 1. Replace `YOUR_DATABASE_NAME_HERE` with the name of the Cosmos DB database that you created earlier.
 
@@ -177,21 +166,25 @@ Finally, we'll create a Power BI report that allows users to update product pric
 
 1. In the connection dialog, provide the Cosmos DB Endpoint and for **Data Connectivity mode**, select **DirectQuery**. Select **OK**.
 
+    If prompted for authentication, select **Organizational account** and sign in with your Microsoft Fabric credentials and select **Connect**.
+
     ![Cosmos DB Connection](./images/cosmos-db-connection.png)
 
-1. In the Navigator pane, select the Cosmos DB database and the two containers: `SampleData` and `SampleData_PriceHistory`. Select **Transform Data** to open the Power Query Editor.
+1. In the Navigator pane, expand the Cosmos DB database and select the two containers: `SampleData` and `SampleData_PriceHistory[]`. 
+
+    Select **Transform Data** to open the Power Query Editor.
 
     ![Navigator Pane](./images/navigator-pane.png)
 
 1. In the Power Query Editor, rename **SampleData_priceHistory[]** to **PriceHistory** for easier reference.
 
-1. Select the **SampleData** table and remove the following columns: `_attachments`, `_etag`, `_rid`, `_self`, `_ts`, `customerNAme`,`rating`, `reviewDate`, `reviewText`, `stars`, `SampleData_priceHistory[](categoryName)` and `SampleData_priceHistory[](id)`. This can be done by selecting the columns, right-clicking, and choosing **Remove Columns**.
+1. Select the **SampleData** table and keep the following columns only: `categoryName`, `currentPrice`, `description`, `docType`, `name` and `productId`. Do this by selecting these columns, right-clicking, and choosing **Remove Other Columns**.
 
 1. Select the **docType** column, in the **SampleData** table, then filter to only include rows where `docType` is equal to `product`.
 
 1. Select the **PriceHistory** table and remove the following columns: `SampleData(categoryName)`, `SampleData(id)`.
 
-1. Rename the columns `SampleData_priceHistory[]_date` and `SampleData_priceHistory[]_price` to `Date` and `Price` respectively.
+1. Rename the columns `SampleData_priceHistory[]_date` and `SampleData_priceHistory[]_price` to `date` and `price` respectively.
 
 1. Close and apply the changes to load the data into Power BI.
 
@@ -205,11 +198,13 @@ In this section, build visuals with the data that you loaded into your Power BI 
 
     ![Manage Relationships](./images/manage-relationships.png)
 
-1. In the Manage Relationships dialog, select **New Relationship** and in the New Relationship dialog, create a relationship between the `id` field in the `SampleData` table and the `id` field in the `PriceHistory` table. Select **Save** to create the relationship.
+1. In the Manage Relationships dialog, select **New Relationship** and in the New Relationship dialog, create a relationship between the `productId` field in the `SampleData` table and the `id` field in the `PriceHistory` table. Select **Save** to create the relationship.
 
     ![New Relationship](./images/new-relationship.png)
 
-1. In the **Visualizations** pane, select the **Slicer** visual to add it to the report canvas, and from the **Data** pane, drag the `categoryName` field from the `PriceHistory` table.
+1. Close the Manage Relationships dialog and switch back to the **Report** view.
+
+1. In the **Visualizations** pane, select the **Slicer** visual to add it to the report canvas, and from the **Data** pane, select the `categoryName` field from the `PriceHistory` table.
 
     ![Category Slicer](./images/category-slicer.png)
 
@@ -219,13 +214,13 @@ In this section, build visuals with the data that you loaded into your Power BI 
 
 1. Using the same steps, add another slicer visual for the `name` field from the `SampleData` table. This slicer will allow users to select a specific product.
 
-1. Add a **Card** visual to the report canvas and select the `currentPrice` field from the `SampleData` table.
+1. Add a **Card** visual to the report canvas and drag the `currentPrice` field from the `SampleData` table to **Value** well and change the Summarization to **Sum**.
 
     ![Current Price Card](./images/current-price-card.png)
 
-1. In the **Format Visual** tab, select the **General** tab. Toggle on **Title**, and set the title text to `Current Price` by expanding the **Title** section.
+1. In the **Format Visual** tab, in the **Visual** tab, expand the **Callout** section and toggle off **Label**.
 
-1. In the **Callouts** section of the **Format Visual** tab, toggle off **Label**.
+1. In the **Format Visual** tab, select the **General** tab. Toggle on **Title**, expand the **Title** section and set the title text to `Current Price`.
 
 1. Add a **Line Chart** visual to the report canvas. From the **Data** pane, drag the `Date` field from the `PriceHistory` table to the **X axis** well, and the `Price` field to the **Y axis** well.
 
@@ -235,36 +230,51 @@ In this section, build visuals with the data that you loaded into your Power BI 
 
     ![Text Slicer](./images/text-slicer.png)
 
-1. Select the text slicer and use the Format visual > General > Title options to give the text slicer the following title: `Enter New Price`.
+1. Select the text slicer and use the **Format visual > General > Title** options to give the text slicer the following title: `Enter New Price`.
+
+    ![Text Slicer Title](./images/text-slicer-title.png)
 
 1. On the taskbar, select the Insert menu and add a Blank button to the report. Drag the button under the text slicer.
 
-1. Select the button and expand the Action options in the Format button pane. Turn the Action radio button to On.
+    ![Insert Button](./images/insert-button.png)
 
-1. Provide the following values for your button:
+1. Select the button and expand the Action options in the **Format button** pane. Turn the Action radio button to On.
+
+1. Expand the **Action** section and provide the following values for your button:
 
     - **Type**: Data function
-    - **Data function**: Select the `update_price_writeback` function that you created earlier.
+    - **Data function**: Select the **fx** button to open the data function selection pane and expand the `update_price_writeback` User data functions and select the `update_product` function. Select **Connect**.
 
-1. Map the function parameters to the appropriate fields and controls in your report:
+1. Still in the **Action** section, map the function parameters to the appropriate fields and controls in your report:
 
-    - **categoryName**: Select the `categoryName` field from the `PriceHistory` table.
-    - **productId**: Select the `id` field from the `SampleData` table.
-    - **newPrice**: Select the text slicer that you added earlier.
+    - **categoryName**: Select the **fx** button  and in the Data function dialog under *What field show we base this on?*, select the `categoryName` field from the `PriceHistory` table.
+    - **productId**: Repeat the previous step and select the `productId` field from the `SampleData` table.
+    - **newPrice**: Select `Enter New Price` from the dropdown.
 
-1. Select the button and expand the Style options in the Format button pane. Turn the Text radio button to On and label your button Enter.
+    ![Map Function Parameters](./images/map-function-parameters.png)
 
-1. In the Style options, switch the **Apply settings to** option to **Loading**. The loading state is a unique state available to data function buttons that you can use to define style options that appear while the data function is running.
+1. Select the button and expand the **Style** options in the **Format button** pane. Turn the **Text** radio button to On and set the button text to `Submit`.
 
-1. Expand the **Text** menu and replace the button text value with `Submitting`.
+1. In the **Style** > **Apply settings to**, switch the **State** option to **Loading**. The loading state is a unique state available to data function buttons that you can use to define style options that appear while the data function is running.
 
-### Step 5: Publish and Test the Report
+1. Expand the **Text** section and replace the button text value with `Submitting`.
+
+1. Your final report should look similar to the following:
+
+    ![Final Report](./images/final-report.png)
+
+### Step 5: Publish and run the translytical Task Flow
 
 1. Save your Power BI report and select **Publish** from the Home tab to publish the report to your Fabric workspace.
 
-1. In Power BI Desktop, open the published report from your Fabric workspace.
+1. Navigate to your Fabric workspace and open the published report.
 
-1. Use the category and product slicers to select a product and view its current price and price history.
+    > **Note:** On opening the report for the first time, you may encounter an error saying, *The data source Extension is missing credentials and cannot be accessed*. Resolve this by following the following steps:
+    > 1. Open the semantic model for your report and navigate to **File** > **Settings**.
+    > 1. Expand the **Data source credentials** setting if it isn't already.
+    > 1. Select **Edit credentials**.
+    > 1. Choose **OAuth2** as your **Authentication method** from the dropdown menu.
+    > 1. select **Sign in** and sign in with your Microsoft Fabric credentials.
 
 1. In the text slicer, enter a new price for the selected product.
 
@@ -275,6 +285,5 @@ In this section, build visuals with the data that you loaded into your Power BI 
 ## 📚 Additional Resources
 
 - [Cosmos DB in Fabric Documentation](https://docs.microsoft.com/fabric/database/cosmos-db/overview)
-- [User Data Functions Documentation](https://learn.microsoft.com/fabric/data-engineering/user-data-functions-overview)
-- [Power BI DirectQuery](https://learn.microsoft.com/power-bi/connect-data/desktop-directquery-about)
-- [Create a Fabric Workspace](https://learn.microsoft.com/fabric/fundamentals/create-workspaces)
+- [User Data Functions Documentation](https://learn.microsoft.com/fabric/data-engineering/user-data-functions/user-data-functions-overview)
+- [Translytical Task Flows Documentation](https://learn.microsoft.com/en-us/power-bi/create-reports/translytical-task-flow-overview)
