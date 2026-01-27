@@ -168,8 +168,6 @@ Finally, we'll create a Power BI report that allows users to update product pric
 
     If prompted for authentication, select **Organizational account** and sign in with your Microsoft Fabric credentials and select **Connect**.
 
-    ![Cosmos DB Connection](./images/cosmos-db-connection.png)
-
 1. In the Navigator pane, expand the Cosmos DB database and select the two containers: `SampleData` and `SampleData_PriceHistory[]`.
 
     Select **Transform Data** to open the Power Query Editor.
